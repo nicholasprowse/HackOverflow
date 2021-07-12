@@ -65,21 +65,12 @@ function cannyEdgeDetector(img) {
 	return edges;
 }
 
-/*
- Better idea:
- Store the unrounded gradient direction with each edgel.
- Pick a random edgel. Compute line perpendicular to gradient passing though
- the edgel. Compute the consensus in the same way. If it is below the threshold
- ignore it and try a different random edgel.
- Otherwise refine the line as follows:
- 	Take all edgels that agree with the line
-	Compute the stdev of the direction of edgels
-	Drop any outside of 2 stdev (or some other amount determined empirically)
-	Update the line with the mean of the directions of the remaining edgels
-	Not sure what the stopping criterion is, since it may be possible that this
-	does not converge. Perhaps stop if the line doesn't change or after 5
-	updates, which ever comes first?
-*/
+// Possible improvements: Once a line is found, define the line as the line
+// between the two most distant edgels that are part of that line.
+// Repeat redefining the line in this manner until it doesn't change. This will
+// result in a fine tuning of the lines we find to ensure they are optimal
+// It should also make duplicated lines less likely, as the lines are more
+// likely to encompass all of the edgels that they should
 
 // Finds n straight line segments from a list of edge pixels
 function RANSAC(edges, n) {
@@ -100,10 +91,10 @@ function RANSAC(edges, n) {
 			edge2 = edges.length - 1;
 
 		// Extact edge points, and define the line
-		const [u1, v1] = edges[edge1],
+		let [u1, v1] = edges[edge1],
 			  [u2, v2] = edges[edge2]
-		const line = [v1 - v2, u2 - u1, u1*v2 - u2*v1]
-		const lineMag = Math.sqrt(line[0]*line[0] + line[1]*line[1])
+		let line = [v1 - v2, u2 - u1, u1*v2 - u2*v1]
+		let lineMag = Math.sqrt(line[0]*line[0] + line[1]*line[1])
 
 		// Find all edgels within a distance d of the line
 		closeEdges = []
@@ -113,6 +104,44 @@ function RANSAC(edges, n) {
 
 		// Found a line
 		if(closeEdges.length >= threshold) {
+			// // Now, we need to refine it
+			// while(true) {
+			// 	// This line is perpendicular and intersects line at y = 0, meaning
+			// 	// all edgels on the line should be to the right of this line
+			// 	const perp = [-line[1], line[0], line[0]*line[2]/line[1]]
+			// 	let min = 0, max = 0, minDist = 1e10, maxDist = 0
+			//
+			// 	// Find extremal edgels
+			// 	for(let i of closeEdges) {
+			// 		// This is not the actual distance, but it's proportional
+			// 		let dist = Math.abs(edges[i][0]*perp[0] + edges[i][1]*perp[1] + perp[2])
+			// 		if(dist > maxDist) {
+			// 			max = i
+			// 			maxDist = dist
+			// 		}
+			// 		if(dist < minDist) {
+			// 			min = i
+			// 			minDist = dist
+			// 		}
+			// 	}
+			//
+			// 	// Recreate line with these extremal edgels
+			// 	[u1, v1] = edges[min]
+			// 	[u2, v2] = edges[max]
+			// 	const newLine = [v1 - v2, u2 - u1, u1*v2 - u2*v1]
+			// 	// If line is the same as previous, exit out of loop
+			// 	if(line[0] == newLine[0] && line[1] == newLine[1] && line[2] == newLine[2])
+			// 		break;
+			//
+			// 	line = newLine
+			// 	lineMag = Math.sqrt(line[0]*line[0] + line[1]*line[1])
+			// 	// Recreate the closest edgels array
+			// 	closeEdges = []
+			// 	for(let i = 0; i < edges.length; i++)
+			// 		if(Math.abs(edges[i][0]*line[0] + edges[i][1]*line[1] + line[2]) <= d*lineMag)
+			// 			closeEdges.push(i)
+			// }
+
 			// Add the line, and remove all close edgels so we don't find it again
 			lines.push(line);
 			for(let i = closeEdges.length - 1; i >= 0; i--)

@@ -37,13 +37,14 @@ function cannyEdgeDetector(img) {
 	// A pixel is an edge if its gradient is above the threshold, and both
 	// neighboring pixels along the gradient direction (perpendicular to edge)
 	// have a smaller gradient direction
+	const h = xGrad.shape[0], w = xGrad.shape[1];
+	let mask = tf.buffer([h, w], 'bool')	// To keep track of which edges have been added
 	let edges = [];
 	const threshold = 0.15;
-	const h = xGrad.shape[0], w = xGrad.shape[1];
-	for(c = 0; c < 3; c++) {
-		for(y = 0; y < h; y++) {
-		    for(x = 0; x < w; x++) {
-		        if(grad[y][x][c] < threshold)
+	for(let c = 0; c < 3; c++) {
+		for(let y = 0; y < h; y++) {
+		    for(let x = 0; x < w; x++) {
+		        if(grad[y][x][c] < threshold || mask.get(y, x))
 		            continue;
 
 		        angle = dir[y][x][c] * Math.PI/180;
@@ -52,14 +53,110 @@ function cannyEdgeDetector(img) {
 
 		        if(0 <= y+dy && y+dy < h && 0 <= y-dy && y-dy < h)
 		            if(0 <= x+dx && x+dx < w && 0 <= x-dx && x-dx < w)
-		                if(grad[y+dy][x+dx][c] < grad[y][x][c] && grad[y-dy][x-dx][c] < grad[y][x][c])
+		                if(grad[y+dy][x+dx][c] < grad[y][x][c] && grad[y-dy][x-dx][c] < grad[y][x][c]) {
 		                    // We lose 3 pixels on each edge when performing the convolutions, so we add those back in here
 							edges.push([x+3, y+3]);
+							mask.set(true, y, x);
+						}
 		    }
 		}
 	}
 
-	return edgesToImage(img, edges);
+	return edges;
+}
+
+// Possible improvements: Once a line is found, define the line as the line
+// between the two most distant edgels that are part of that line.
+// Repeat redefining the line in this manner until it doesn't change. This will
+// result in a fine tuning of the lines we find to ensure they are optimal
+// It should also make duplicated lines less likely, as the lines are more
+// likely to encompass all of the edgels that they should
+
+// Finds n straight line segments from a list of edge pixels
+function RANSAC(edges, n) {
+	// This algorithm has 3 hyperparameters:
+	// d is the maximum distance to a line before an edgel is counted
+	// threshReduction is the factor by which the threshold reduces if no lines can be found
+	// countThreshold is the number of times to try before reducing the countThreshold
+	const d = 2, threshReduction = 0.98, countThreshold = 5000
+	lines = []
+	let threshold = edges.length / 20
+	let count = 0
+	while(lines.length < n) {
+		// This way of selecting edges ensures that the two edges are not the same
+		// but each edge still has the same probability of being selected
+		let edge1 = Math.floor(Math.random() * edges.length)
+		let edge2 = Math.floor(Math.random() * (edges.length - 1))
+		if(edge1 == edge2)
+			edge2 = edges.length - 1;
+
+		// Extact edge points, and define the line
+		let [u1, v1] = edges[edge1],
+			  [u2, v2] = edges[edge2]
+		let line = [v1 - v2, u2 - u1, u1*v2 - u2*v1]
+		let lineMag = Math.sqrt(line[0]*line[0] + line[1]*line[1])
+
+		// Find all edgels within a distance d of the line
+		closeEdges = []
+		for(let i = 0; i < edges.length; i++)
+			if(Math.abs(edges[i][0]*line[0] + edges[i][1]*line[1] + line[2]) <= d*lineMag)
+				closeEdges.push(i)
+
+		// Found a line
+		if(closeEdges.length >= threshold) {
+			// // Now, we need to refine it
+			// while(true) {
+			// 	// This line is perpendicular and intersects line at y = 0, meaning
+			// 	// all edgels on the line should be to the right of this line
+			// 	const perp = [-line[1], line[0], line[0]*line[2]/line[1]]
+			// 	let min = 0, max = 0, minDist = 1e10, maxDist = 0
+			//
+			// 	// Find extremal edgels
+			// 	for(let i of closeEdges) {
+			// 		// This is not the actual distance, but it's proportional
+			// 		let dist = Math.abs(edges[i][0]*perp[0] + edges[i][1]*perp[1] + perp[2])
+			// 		if(dist > maxDist) {
+			// 			max = i
+			// 			maxDist = dist
+			// 		}
+			// 		if(dist < minDist) {
+			// 			min = i
+			// 			minDist = dist
+			// 		}
+			// 	}
+			//
+			// 	// Recreate line with these extremal edgels
+			// 	[u1, v1] = edges[min]
+			// 	[u2, v2] = edges[max]
+			// 	const newLine = [v1 - v2, u2 - u1, u1*v2 - u2*v1]
+			// 	// If line is the same as previous, exit out of loop
+			// 	if(line[0] == newLine[0] && line[1] == newLine[1] && line[2] == newLine[2])
+			// 		break;
+			//
+			// 	line = newLine
+			// 	lineMag = Math.sqrt(line[0]*line[0] + line[1]*line[1])
+			// 	// Recreate the closest edgels array
+			// 	closeEdges = []
+			// 	for(let i = 0; i < edges.length; i++)
+			// 		if(Math.abs(edges[i][0]*line[0] + edges[i][1]*line[1] + line[2]) <= d*lineMag)
+			// 			closeEdges.push(i)
+			// }
+
+			// Add the line, and remove all close edgels so we don't find it again
+			lines.push(line);
+			for(let i = closeEdges.length - 1; i >= 0; i--)
+				edges.splice(closeEdges[i], 1)
+			count = 0
+		}
+		count++
+
+		// If it takes too long, reduce the threshold by threshReduction
+		if(count >= countThreshold) {
+			threshold = threshReduction * threshold
+		}
+	}
+
+	return lines;
 }
 
 // Scales all elements in a tensor to be in the range 0 to 1 for displaying as image
@@ -83,14 +180,44 @@ function convolve(img, kernel) {
 
 //************ THESE FUNCTIONS ARE ALL FOR TESTING PURPOSES ONLY ***************
 
-function edgesToImage(orig, edges) {
-	orig = orig.bufferSync();
-	for(i = 0; i < edges.length; i++) {
-		orig.set(0, edges[i][1], edges[i][0], 0)
-		orig.set(0, edges[i][1], edges[i][0], 1)
-		orig.set(0, edges[i][1], edges[i][0], 2)
+function overlayEdges(img, edges) {
+	img = img.bufferSync();
+	for(let i = 0; i < edges.length; i++) {
+		img.set(1, edges[i][1], edges[i][0], 0)
+		img.set(0, edges[i][1], edges[i][0], 1)
+		img.set(0, edges[i][1], edges[i][0], 2)
 	}
-	return orig.toTensor()
+	return img.toTensor()
+}
+
+// Warning: Divide by zero errors are not handled
+function overlayLines(img, lines) {
+	img = img.bufferSync();
+	for(const line of lines) {
+		const m = -line[0] / line[1];
+		if(Math.abs(m) > 1) {
+			// Iterate over y
+			for(let y = 0; y < img.shape[0]; y++) {
+				const x = -Math.round((line[1]*y + line[2]) / line[0])
+				if(x >= 0 && x < img.shape[1]) {
+					img.set(0, y, x, 0)
+					img.set(1, y, x, 1)
+					img.set(0, y, x, 2)
+				}
+			}
+		} else {
+			// Iterate over x
+			for(let x = 0; x < img.shape[1]; x++) {
+				const y = -Math.round((line[0]*x + line[2]) / line[1])
+				if(y >= 0 && y < img.shape[0]) {
+					img.set(0, y, x, 0)
+					img.set(1, y, x, 1)
+					img.set(0, y, x, 2)
+				}
+			}
+		}
+	}
+	return img.toTensor();
 }
 
 function test() {
@@ -102,15 +229,18 @@ function test() {
 		scale = 500 / Math.max(a.shape[0], a.shape[1])
 		a = tf.image.resizeBilinear(a, [a.shape[0] * scale, a.shape[1] * scale])
 		a = a.div(255);
-		edges = cannyEdgeDetector(a);
-		showImg(edges);
+		let edges = cannyEdgeDetector(a);
+		let lines = RANSAC(edges, 21);
+		// img = overlayEdges(a, edges)
+		img = overlayLines(a, lines)
+		showImg(img);
 	}
-	im.src = "../imgs/cube_1.jpeg";
+	im.src = "../imgs/cube_2.jpeg";
 }
 
 function showImg(img) {
 	img = normalise(img);
-	canvas = document.createElement('canvas');
+	let canvas = document.createElement('canvas');
 	document.body.insertBefore(canvas, null);
 	tf.browser.toPixels(img, canvas);
 }

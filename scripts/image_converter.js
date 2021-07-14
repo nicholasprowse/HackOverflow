@@ -145,6 +145,7 @@ function convolve(img, kernel) {
 
 function splitLines(lines) {
 	let groups = [[], [], []]
+	let count = 0
 	do {
 		let angles = new Array(lines.length)
 		for(let i = 0; i < angles.length; i++) {
@@ -155,8 +156,32 @@ function splitLines(lines) {
 		groups = [[], [], []]
 		for(let i = 0; i < lines.length; i++)
 			groups[labels[i]].push(lines[i])
+		if(count > 50)
+			return null
+		count++
 	} while(groups[0].length != 7 || groups[1].length != 7 || groups[2].length != 7)
 	return groups
+}
+
+function sortGroup(lines, x, y) {
+	let [a, b, c] = lines[0]
+	let perp = [-(b/(b*x - a*y)), -(a/(-b*x + a*y)), 1]
+	let ref = [(-10000*perp[1] - perp[2])/perp[0], 10000]
+	let d = new Array(lines.length)
+	for(let i = 0; i < lines.length; i++)
+		d[i] = dist(ref, intersection(perp, lines[i]))
+
+	let index = [...Array(lines.length).keys()]
+	index.sort((a, b) => d[a] - d[b])
+	let newLines = new Array(lines.length)
+	for(let i = 0; i < lines.length; i++)
+		newLines[i] = lines[index[i]]
+
+	return newLines
+}
+
+function getQuadsFromFace() {
+
 }
 
 function kmeans(data, k) {
@@ -218,6 +243,16 @@ function dist(a, b){
 	return sum
 }
 
+function intersection(a, b) {
+	let [x, y, l] = cross(a, b)
+	return [x/l, y/l]
+}
+
+function cross(a, b) {
+	let [x, y, z] = a, [u, v, w] = b
+	return [w*y - v*z, -w*x + u*z, v*x - u*y]
+}
+
 //************ THESE FUNCTIONS ARE ALL FOR TESTING PURPOSES ONLY ***************
 
 function overlayEdges(img, edges) {
@@ -270,6 +305,13 @@ function test() {
 		let edges = cannyEdgeDetector(img)
 		let lines = RANSAC(edges, 21)
 		let groups = splitLines(lines)
+		groups[0] = sortGroup(groups[0], img.shape[1]/2, img.shape[0]/2)
+
+		let s = ""
+		for(let g of groups[0])
+			s += "{" +g[0] + "," + g[1] + "},"
+		console.log(s)
+
 		img = img.bufferSync()
 		// img = overlayEdges(a, edges)
 		for(let i = 0; i < groups[0].length; i++)

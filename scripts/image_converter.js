@@ -180,8 +180,48 @@ function sortGroup(lines, x, y) {
 	return newLines
 }
 
-function getQuadsFromFace() {
+function getQuadsFromFace(groups, g, start) {
+	let others = [0, 1, 2]
+	others.splice(g, 1)
+	let l = groups[g][start ? 0 : 6]
+	let ref = [(-10000*l[1] - l[2])/l[0], 10000]
+	let d = new Array(4), p = new Array(4)
+	for(let i = 0; i < 4; i++) {
+		p[i] = intersection(l, groups[others[Math.floor(i/2)]][6*(i%2)])
+		d[i] = dist(ref, p[i])
+	}
+	let index = [...Array(4).keys()]
+	index.sort((a, b) => d[a] - d[b])
+	let a = p[index[1]], b = p[index[2]]
 
+	let groupValues = new Array(6).fill(1e10)
+	for(let i = 0; i < 3; i++) {
+		if(i == g)
+			continue
+
+		let ints = [intersection(l, groups[i][0]),
+					intersection(l, groups[i][3]),
+					intersection(l, groups[i][6])]
+
+		d = new Array(3)
+		for(let j = 0; j < 3; j++)
+			d[j] = Math.min(dist(ints[j], a), dist(ints[j], b))
+
+		groupValues[2*i] = d[0] + d[1]
+		groupValues[2*i+1] = d[1] + d[2]
+	}
+
+	let x = tf.tensor(groupValues).argMin().arraySync()
+	let g2 = Math.floor(x/2)
+	let off1 = start ? 0 : 3
+	let off2 = (x % 2) == 0 ? 0 : 3
+
+	let quads = []
+	for(let i = 0; i < 3; i++)
+		for(let j = 0; j < 3; j++)
+			quads.push([groups[g][i+off1], groups[g2][j+off2],
+					    groups[g][i+off1+1], groups[g2][j+off2+1]])
+	return quads
 }
 
 function kmeans(data, k) {
@@ -255,7 +295,7 @@ function cross(a, b) {
 
 //************ THESE FUNCTIONS ARE ALL FOR TESTING PURPOSES ONLY ***************
 
-function overlayEdges(img, edges) {
+function drawEdges(img, edges) {
 	img = img.bufferSync();
 	for(let i = 0; i < edges.length; i++) {
 		img.set(1, edges[i][1], edges[i][0], 0)
@@ -266,7 +306,7 @@ function overlayEdges(img, edges) {
 }
 
 // Warning: Divide by zero errors are not handled
-function overlayLine(img, line, c) {
+function drawLine(img, line, c) {
 	const m = -line[0] / line[1];
 	if(Math.abs(m) > 1) {
 		// Iterate over y
@@ -293,10 +333,49 @@ function overlayLine(img, line, c) {
 	return img
 }
 
+function drawLineSegment(img, p1, p2, c) {
+	let line = cross([p1[0], p1[1], 1], [p2[0], p2[1], 1])
+	const m = -line[0] / line[1];
+	if(Math.abs(m) > 1) {
+		// Iterate over y
+		let sy = Math.min(p1[1], p2[1]), fy = Math.max(p1[1], p2[1])
+		for(let y = Math.floor(sy); y <= fy; y++) {
+			const x = -Math.round((line[1]*y + line[2]) / line[0])
+			if(x >= 0 && x < img.shape[1]) {
+				img.set(c[0], y, x, 0)
+				img.set(c[1], y, x, 1)
+				img.set(c[2], y, x, 2)
+			}
+		}
+	} else {
+		// Iterate over x
+		let sx = Math.min(p1[0], p2[0]), fx = Math.max(p1[0], p2[0])
+		for(let x = Math.floor(sx); x <= fx; x++) {
+			const y = -Math.round((line[0]*x + line[2]) / line[1])
+			if(y >= 0 && y < img.shape[0]) {
+				img.set(c[0], y, x, 0)
+				img.set(c[1], y, x, 1)
+				img.set(c[2], y, x, 2)
+			}
+		}
+	}
+
+	return img
+}
+
+function drawQuad(img, q) {
+	let corners = new Array(4)
+	for(let i = 0; i < 4; i++)
+		corners[i] = intersection(q[i], q[(i+1) % 4])
+
+	for(let i = 0; i < 4; i++)
+		img = drawLineSegment(img, corners[i], corners[(i+1)%4], [0, 0, 0])
+	return img
+}
+
 function test() {
 	const im = new Image();
 	im.onload = () => {
-		console.log(im)
 		let img = tf.browser.fromPixels(im)
 		// Want img to have maximum size of 500
 		scale = 500 / Math.max(img.shape[0], img.shape[1])
@@ -305,25 +384,34 @@ function test() {
 		let edges = cannyEdgeDetector(img)
 		let lines = RANSAC(edges, 21)
 		let groups = splitLines(lines)
-		groups[0] = sortGroup(groups[0], img.shape[1]/2, img.shape[0]/2)
+		if(groups == null) {
+			console.log("FAILURE")
+			return
+		}
+		for(let i = 0; i < 3; i++)
+			groups[i] = sortGroup(groups[i], img.shape[1]/2, img.shape[0]/2)
 
+		let quads = getQuadsFromFace(groups, 0, false)
+		quads = quads.concat(getQuadsFromFace(groups, 0, true))
 		let s = ""
 		for(let g of groups[0])
 			s += "{" +g[0] + "," + g[1] + "},"
-		console.log(s)
+		//console.log(s)
 
 		img = img.bufferSync()
 		// img = overlayEdges(a, edges)
 		for(let i = 0; i < groups[0].length; i++)
-			img = overlayLine(img, groups[0][i], [1, 0, 0])
+			img = drawLine(img, groups[0][i], [1, 0, 0])
 		for(let i = 0; i < groups[1].length; i++)
-			img = overlayLine(img, groups[1][i], [0, 1, 0])
+			img = drawLine(img, groups[1][i], [0, 1, 0])
 		for(let i = 0; i < groups[2].length; i++)
-			img = overlayLine(img, groups[2][i], [0, 0, 1])
-		console.log(groups)
+			img = drawLine(img, groups[2][i], [0, 0, 1])
+		for(let i = 0; i < quads.length; i++)
+			img = drawQuad(img, quads[i])
+
 		showImg(img.toTensor());
 	}
-	im.src = "../imgs/cube_2.jpeg";
+	im.src = "../imgs/cube_1.jpeg";
 }
 
 function showImg(img) {

@@ -149,6 +149,62 @@ function convolve(img, kernel) {
 	return tf.conv2d(img, kernel, strides = [1, 1], pad = 'valid')
 }
 
+function kmeans(data, k) {
+    let n = data.length
+	for(let i = 0; i < n; i++)
+		data[i] = tf.tensor(data[i])
+
+	let means = new Array(k)
+	for(let i = 0; i < k; i++)
+		means[i] = data[Math.floor(Math.random() * n)]
+	
+	while(true) {
+	    // Create label image containing which mean each pixel is closest to
+	    label = new Array(n)
+	    for(let i = 0; i < n; i++) {
+			let min = 0, minDist = 1e10
+			for(let j = 0; j < k; j++) {
+
+		        let d = dist(data[i], means[j])
+		        if(d < minDist){
+					minDist = d
+					min = j
+				}
+			}
+			label[i] = j
+	    }
+
+	    // Recompute means using the new labels
+	    new_means = new Array(k).fill(tf.zerosLike(data[0]))
+	    total = new Array(k).fill(0)
+	    for(let i = 0; i < n; i++) {
+	        new_means[label[i]] = new_means[label[i]].add(data[i])
+	        total[label[i]]++
+	    }
+
+		let finished = true;
+		for(let i = 0; i < k; i++) {
+	    	new_means[i] = new_means.div(total)
+			if(new_means[i].notEqual(means[i]).sum().arraySync()[0])
+				finished = false
+			means[i] = new_means[i]
+		}
+
+		if(finished) {
+			for(let i = 0; i < n; i++)
+				data[i] = data[i].arraySync()
+			return labels
+		}
+	}
+}
+
+function dist(a, b){
+	let sum = 0
+	for(let i = 0; i < a.length; i++)
+		sum += (a[i] - b[i])**2
+	return sum
+}
+
 //************ THESE FUNCTIONS ARE ALL FOR TESTING PURPOSES ONLY ***************
 
 function overlayEdges(img, edges) {

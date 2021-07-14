@@ -30,8 +30,9 @@ function cannyEdgeDetector(img) {
 
 	// Compute the magnitude and direction of the gradient
 	let grad = tf.add(xGrad.square(), yGrad.square()).arraySync()
-	let dir = tf.atan2(yGrad, xGrad).mul(180/Math.PI)
-	dir = dir.div(45).round().mul(45).arraySync()
+	let dir = tf.atan2(yGrad, xGrad)
+	let rDir = dir.mul(4/Math.PI).round().mul(Math.PI/4).arraySync()
+	dir = dir.arraySync()
 
 	// For each pixel, determine if it is an edge.
 	// A pixel is an edge if its gradient is above the threshold, and both
@@ -47,7 +48,7 @@ function cannyEdgeDetector(img) {
 		        if(grad[y][x][c] < threshold || mask.get(y, x))
 		            continue;
 
-		        angle = dir[y][x][c] * Math.PI/180;
+		        angle = rDir[y][x][c] * Math.PI/180;
 		        const dx = Math.round(Math.cos(angle));
 		        const dy = Math.round(Math.sin(angle));
 
@@ -55,7 +56,7 @@ function cannyEdgeDetector(img) {
 		            if(0 <= x+dx && x+dx < w && 0 <= x-dx && x-dx < w)
 		                if(grad[y+dy][x+dx][c] < grad[y][x][c] && grad[y-dy][x-dx][c] < grad[y][x][c]) {
 		                    // We lose 3 pixels on each edge when performing the convolutions, so we add those back in here
-							edges.push([x+3, y+3]);
+							edges.push([x+3, y+3, dir[y][x][c]]);
 							mask.set(true, y, x);
 						}
 		    }
@@ -87,22 +88,15 @@ function RANSAC(edges, n) {
 	// d is the maximum distance to a line before an edgel is counted
 	// threshReduction is the factor by which the threshold reduces if no lines can be found
 	// countThreshold is the number of times to try before reducing the countThreshold
-	const d = 2, threshReduction = 0.98, countThreshold = 5000
+	const d = 2, threshReduction = 0.98, countThreshold = 1000
 	lines = []
-	let threshold = edges.length / 20
+	let threshold = edges.length / 10
 	let count = 0
 	while(lines.length < n) {
-		// This way of selecting edges ensures that the two edges are not the same
-		// but each edge still has the same probability of being selected
-		let edge1 = Math.floor(Math.random() * edges.length)
-		let edge2 = Math.floor(Math.random() * (edges.length - 1))
-		if(edge1 == edge2)
-			edge2 = edges.length - 1;
+		let [x, y, a] = edges[Math.floor(Math.random() * edges.length)]
+		let m = -1/Math.tan(a)
 
-		// Extact edge points, and define the line
-		const [u1, v1] = edges[edge1],
-			  [u2, v2] = edges[edge2]
-		const line = [v1 - v2, u2 - u1, u1*v2 - u2*v1]
+		let line = [-(m/(m*x - y)), -(1/(-m*x + y)), 1]
 		const lineMag = Math.sqrt(line[0]*line[0] + line[1]*line[1])
 
 		// Find all edgels within a distance d of the line
@@ -149,6 +143,22 @@ function convolve(img, kernel) {
 	return tf.conv2d(img, kernel, strides = [1, 1], pad = 'valid')
 }
 
+function splitLines(lines) {
+	let groups = [[], [], []]
+	do {
+		let angles = new Array(lines.length)
+		for(let i = 0; i < angles.length; i++) {
+			let a = Math.atan2(-lines[i][0], lines[i][1])
+			angles[i] = [Math.cos(a), Math.sin(a)]
+		}
+		let labels = kmeans(angles, 3)
+		groups = [[], [], []]
+		for(let i = 0; i < lines.length; i++)
+			groups[labels[i]].push(lines[i])
+	} while(groups[0].length != 7 || groups[1].length != 7 || groups[2].length != 7)
+	return groups
+}
+
 function kmeans(data, k) {
     let n = data.length
 	for(let i = 0; i < n; i++)
@@ -157,26 +167,29 @@ function kmeans(data, k) {
 	let means = new Array(k)
 	for(let i = 0; i < k; i++)
 		means[i] = data[Math.floor(Math.random() * n)]
-	
+
 	while(true) {
 	    // Create label image containing which mean each pixel is closest to
 	    label = new Array(n)
 	    for(let i = 0; i < n; i++) {
 			let min = 0, minDist = 1e10
 			for(let j = 0; j < k; j++) {
+		        let d = data[i].squaredDifference(means[j]).sum().arraySync()
 
-		        let d = dist(data[i], means[j])
 		        if(d < minDist){
 					minDist = d
 					min = j
 				}
 			}
-			label[i] = j
+			label[i] = min
 	    }
 
 	    // Recompute means using the new labels
-	    new_means = new Array(k).fill(tf.zerosLike(data[0]))
+	    new_means = new Array(k)
 	    total = new Array(k).fill(0)
+		for(let i = 0; i < k; i++)
+			new_means[i] = tf.zerosLike(data[0])
+
 	    for(let i = 0; i < n; i++) {
 	        new_means[label[i]] = new_means[label[i]].add(data[i])
 	        total[label[i]]++
@@ -184,7 +197,7 @@ function kmeans(data, k) {
 
 		let finished = true;
 		for(let i = 0; i < k; i++) {
-	    	new_means[i] = new_means.div(total)
+	    	new_means[i] = new_means[i].div(total[i])
 			if(new_means[i].notEqual(means[i]).sum().arraySync()[0])
 				finished = false
 			means[i] = new_means[i]
@@ -193,7 +206,7 @@ function kmeans(data, k) {
 		if(finished) {
 			for(let i = 0; i < n; i++)
 				data[i] = data[i].arraySync()
-			return labels
+			return label
 		}
 	}
 }
@@ -218,49 +231,55 @@ function overlayEdges(img, edges) {
 }
 
 // Warning: Divide by zero errors are not handled
-function overlayLines(img, lines) {
-	img = img.bufferSync();
-	for(const line of lines) {
-		const m = -line[0] / line[1];
-		if(Math.abs(m) > 1) {
-			// Iterate over y
-			for(let y = 0; y < img.shape[0]; y++) {
-				const x = -Math.round((line[1]*y + line[2]) / line[0])
-				if(x >= 0 && x < img.shape[1]) {
-					img.set(0, y, x, 0)
-					img.set(1, y, x, 1)
-					img.set(0, y, x, 2)
-				}
+function overlayLine(img, line, c) {
+	const m = -line[0] / line[1];
+	if(Math.abs(m) > 1) {
+		// Iterate over y
+		for(let y = 0; y < img.shape[0]; y++) {
+			const x = -Math.round((line[1]*y + line[2]) / line[0])
+			if(x >= 0 && x < img.shape[1]) {
+				img.set(c[0], y, x, 0)
+				img.set(c[1], y, x, 1)
+				img.set(c[2], y, x, 2)
 			}
-		} else {
-			// Iterate over x
-			for(let x = 0; x < img.shape[1]; x++) {
-				const y = -Math.round((line[0]*x + line[2]) / line[1])
-				if(y >= 0 && y < img.shape[0]) {
-					img.set(0, y, x, 0)
-					img.set(1, y, x, 1)
-					img.set(0, y, x, 2)
-				}
+		}
+	} else {
+		// Iterate over x
+		for(let x = 0; x < img.shape[1]; x++) {
+			const y = -Math.round((line[0]*x + line[2]) / line[1])
+			if(y >= 0 && y < img.shape[0]) {
+				img.set(c[0], y, x, 0)
+				img.set(c[1], y, x, 1)
+				img.set(c[2], y, x, 2)
 			}
 		}
 	}
-	return img.toTensor();
+
+	return img
 }
 
 function test() {
 	const im = new Image();
 	im.onload = () => {
 		console.log(im)
-		let a = tf.browser.fromPixels(im)
+		let img = tf.browser.fromPixels(im)
 		// Want img to have maximum size of 500
-		scale = 500 / Math.max(a.shape[0], a.shape[1])
-		a = tf.image.resizeBilinear(a, [a.shape[0] * scale, a.shape[1] * scale])
-		a = a.div(255);
-		let edges = cannyEdgeDetector(a);
-		let lines = RANSAC(edges, 21);
+		scale = 500 / Math.max(img.shape[0], img.shape[1])
+		img = tf.image.resizeBilinear(img, [img.shape[0] * scale, img.shape[1] * scale]).div(255)
+
+		let edges = cannyEdgeDetector(img)
+		let lines = RANSAC(edges, 21)
+		let groups = splitLines(lines)
+		img = img.bufferSync()
 		// img = overlayEdges(a, edges)
-		img = overlayLines(a, lines)
-		showImg(img);
+		for(let i = 0; i < groups[0].length; i++)
+			img = overlayLine(img, groups[0][i], [1, 0, 0])
+		for(let i = 0; i < groups[1].length; i++)
+			img = overlayLine(img, groups[1][i], [0, 1, 0])
+		for(let i = 0; i < groups[2].length; i++)
+			img = overlayLine(img, groups[2][i], [0, 0, 1])
+		console.log(groups)
+		showImg(img.toTensor());
 	}
 	im.src = "../imgs/cube_2.jpeg";
 }

@@ -16,20 +16,53 @@ const black = new THREE.Color(0, 0, 0);
 const magenta = new THREE.Color(1, 0, 1);
 const c = {"W": white, "O": orange, "R": red, "B": blue, "Y": yellow, "G": green}
 const boxSize = 0.97
-const cubies = []
+let cubies = []
+const scene = new THREE.Scene();
 let rotatingCubies = []
 let rotationAxes = 'x'
 let rotationAmount = 0
 let rotationTarget = 0
 let moveCallback = null
-
+let playing = false
 window.makeMove = makeMove;
 window.makeSequenceOfMoves = makeSequenceOfMoves;
 
-window.play = () => {makeSequenceOfMoves(moveSequence, currentMove)}
-window.singleMove = () => {makeMove(moveSequence[currentMove++])}
-window.back = () => {undoMove(moveSequence[--currentMove])}
-window.reset = () => {}
+window.play = () => {
+	if(rotatingCubies.length > 0)
+		return
+	let button = document.getElementById("playButton")
+	if(playing) {
+		moveCallback = null
+		button.innerHTML = "play_arrow"
+		playing = !playing
+	} else {
+		button.innerHTML = "pause"
+		makeSequenceOfMoves(moveSequence)
+		playing = !playing
+	}
+
+}
+window.singleMove = () => {
+	if(rotatingCubies.length == 0 && !playing)
+		makeMove(moveSequence[currentMove++])
+}
+window.back = () => {
+	if(rotatingCubies.length == 0 && !playing)
+		undoMove(moveSequence[--currentMove])
+}
+window.reset = () => {
+	for(let cube of cubies)
+		scene.remove(cube)
+	cubies = []
+	createRubiksCube(scene)
+	rotatingCubies = []
+	rotationAxes = 'x'
+	rotationAmount = 0
+	rotationTarget = 0
+	moveCallback = null
+	playing = false
+	currentMove = 0
+}
 
 function main() {
 	const canvas = document.querySelector('#c');
@@ -50,8 +83,6 @@ function main() {
 	camera.rotateOnAxis(new THREE.Vector3(0, 1, 0), 0.55)
 	camera.rotateOnAxis(new THREE.Vector3(1, 0, 0), -0.52)
 	//camera.rotation.set(-Math.PI/4, Math.PI/4, 0)
-
-	const scene = new THREE.Scene();
 
 	{
 		const color = 0xFFFFFF;
@@ -95,12 +126,12 @@ function main() {
 	requestAnimationFrame(render);
 }
 
-function makeSequenceOfMoves(moves, startingMove) {
-	if(startingMove >= moves.length)
+function makeSequenceOfMoves(moves) {
+	if(currentMove >= moves.length)
 		return
 
-	makeMove(moves[startingMove], () => {
-		makeSequenceOfMoves(moves, startingMove + 1)
+	makeMove(moves[currentMove++], () => {
+		makeSequenceOfMoves(moves, currentMove)
 	})
 }
 

@@ -12,19 +12,23 @@
 
 </head>
 <body>
-
+	<style>
+		#section {
+			text-align: center;
+		}
+	</style>
 	<div class="w3-container w3-blue">
 	    <h1>Solution</h1>
 	</div>
+	<section id="section">
+	    <canvas id="c"></canvas>
+		<br></br>
 
-    <canvas id="c"></canvas>
-	<br></br>
-
-	<button class="mdc-icon-button mdc-button--raised material-icons" onclick="reset()">replay</button>
-	<button class="mdc-icon-button mdc-button--raised material-icons" onclick="back()">arrow_back</button>
-	<button class="mdc-icon-button mdc-button--raised material-icons" Id="playButton" onclick="play()">play_arrow</button>
-	<button class="mdc-icon-button mdc-button--raised material-icons" onclick="singleMove()">arrow_forward</button>
-	<br></br>
-
+		<button class="mdc-icon-button mdc-button--raised material-icons" onclick="reset()">replay</button>
+		<button class="mdc-icon-button mdc-button--raised material-icons" onclick="back()">arrow_back</button>
+		<button class="mdc-icon-button mdc-button--raised material-icons" Id="playButton" onclick="play()">play_arrow</button>
+		<button class="mdc-icon-button mdc-button--raised material-icons" onclick="singleMove()">arrow_forward</button>
+		<br></br>
+	</section>
 </body>
 </html>

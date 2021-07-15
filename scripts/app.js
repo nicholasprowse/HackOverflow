@@ -1,11 +1,11 @@
 // Convert rubix cube in the following format
-let sampleInput = "OOWOOWOOWYYYWWRGGGOBBYYYWWRGGGOBBYYYWWRGGGOBBRRBRRBRRB" 
+let input = new URLSearchParams(window.location.search).get('state')
 let {PythonShell} = require('python-shell');
 
 //path depnds on host machine that we will run for the demo or however it will be deployed
 let options = {
 	scriptPath: './',
-	args: [sampleInput],
+	args: [input],
 	pythonPath: '/opt/homebrew/bin/python3'
 };
 

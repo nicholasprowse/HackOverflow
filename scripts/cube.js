@@ -1,8 +1,8 @@
 import * as THREE from '../resources/threejs/build/three.module.js';
 
-let cube_state = "RYRWBOBGGBROWYYRGWGOYWORGWBYRYRYBGWOYWOGBRWOWBOYGGROBB"
+let cube_state = new URLSearchParams(window.location.search).get('state')
 //				 "012345678901234567890123456789012345678901234567890123"
-let moveSequence = ['Xi', 'U', 'U', 'Li', 'D', 'D', 'B', 'B', 'Di', 'B', 'Li', 'U', 'U', 'Li', 'U', 'Di', 'Ri', 'F', 'F', 'R', 'R', 'U', 'U', 'B', 'B', 'U', 'U', 'L', 'L', 'Ui', 'R', 'R']
+// let moveSequence = ['Xi', 'U', 'U', 'Li', 'D', 'D', 'B', 'B', 'Di', 'B', 'Li', 'U', 'U', 'Li', 'U', 'Di', 'Ri', 'F', 'F', 'R', 'R', 'U', 'U', 'B', 'B', 'U', 'U', 'L', 'L', 'Ui', 'R', 'R']
 let cube
 let currentMove = 0
 
@@ -76,7 +76,9 @@ window.reset = () => {
 	document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
 }
 
-function main() {
+function main(moves) {
+	moveSequence = moves
+	generateMoves()
 	const canvas = document.querySelector('#c');
 	let size = window.innerWidth;
 	if(size > window.innerHeight)
@@ -313,19 +315,19 @@ GWOYWOGBRWOW
 RYRWBOBGGBROWYYRGWGOYWORGWBYRYRYBGWOYWOGBRWOWBOYGGROBB
 */
 
-main()
-
-// Generate move list
-const template = document.createElement('div');
-template.innerHTML = ""
-for(let i = 0; i < moveSequence.length; i++) {
-	template.innerHTML +=
-	`
-		<button class="mdc-button" Id="` + i + `" disabled>
-		   <span class="mdc-button__label" style="font-size:20px; min-width:initial; width:20px">
-		   ` + moveSequence[i].replace('i', "'") + `</span>
-		</button>
-	`
+function generateMoves() {
+	// Generate move list
+	const template = document.createElement('div');
+	template.innerHTML = ""
+	for(let i = 0; i < moveSequence.length; i++) {
+		template.innerHTML +=
+		`
+			<button class="mdc-button" Id="` + i + `" disabled style=" min-width:0px; width:35px">
+			   <span class="mdc-button__label" style="font-size:20px">
+			   ` + moveSequence[i].replace('i', "'") + `</span>
+			</button>
+		`
+	}
+	document.getElementById("section").appendChild(template)
+	document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
 }
-document.body.appendChild(template)
-document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")

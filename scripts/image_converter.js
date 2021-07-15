@@ -1,3 +1,20 @@
+
+function extractCubeStateFromImgs(imgs) {
+	// This is incomplete, so just return hardcoded state for testing purposes
+	return "RYRWBOBGGBROWYYRGWGOYWORGWBYRYRYBGWOYWOGBRWOWBOYGGROBB"
+
+	for(let img of imgs) {
+		let edges = cannyEdgeDetector(img)
+		let lines = RANSAC(edges, 21)
+		let groups = splitLines(lines)
+		if(groups == null) {
+			console.log("FAILURE")
+			return
+		}
+		let quads = getQuads(img, groups)
+	}
+}
+
 // Possible improvements:
 // Use hysteresis to include weak edges that are attached to strong edges
 // Replace Gaussian filter with an adaptive filter to prevent smoothing out edgesToImage
@@ -197,27 +214,30 @@ function kmeans(data, k, means=null) {
 
 function getQuads(img, groups) {
 	// Sort each group so the lines are in order
+	for(let i = 0; i < 3; i++)
+		groups[i] = sortGroup(groups[i], img.shape[1]/2, img.shape[0]/2)
+
+	let [quads, x1] = getQuadsFromFace(groups, 0, false)
+	let [quads2, x2] = getQuadsFromFace(groups, 0, true)
+
+	quads = quads.concat(quads2)
+	let x = []
+	for(let i = 2; i < 6; i++)
+		if(i != x1 && i != x2)
+			x.push(i)
+
+	let g1 = Math.floor(x[0] / 2),
+		g2 = Math.floor(x[1] / 2)
+
+	let off1 = (x[0] % 2) == 0 ? 0 : 3
+	let off2 = (x[1] % 2) == 0 ? 0 : 3
 	for(let i = 0; i < 3; i++) {
-		let [x, y] = [img.shape[1]/2, img.shape[0]/2]
-		let m = groups[i][0][1] / groups[i][0][0]
-		let perp = [m/(y - m*x), -1/(y - m*x), 1]
-		let ref = [(-10000*perp[1] - perp[2])/perp[0], 10000]
-		let d = new Array(groups[i].length)
-		for(let j = 0; j < groups[i].length; j++)
-			d[j] = dist(ref, intersection(perp, groups[i][j]))
-		let index = [...Array(groups[i].length).keys()]
-		index.sort((a, b) => (d[a] - d[b]))
-		let newLines = new Array(groups[i].length)
-		for(let j = 0; j < groups[i].length; j++)
-			newLines[j] = groups[i][index[j]]
-		groups[i] = newLines
+		for(let j = 0; j < 3; j++) {
+			quads.push([
+				groups[g1][i+off1], groups[g2][j+off2],
+				groups[g1][i+off1+1], groups[g2][j+off2+1]])
+		}
 	}
-
-	let quads = []
-
-	quads = quads.concat(getQuadsFromFace(groups, 1, false))
-	quads = quads.concat(getQuadsFromFace(groups, 1, true))
-
 	return quads
 }
 

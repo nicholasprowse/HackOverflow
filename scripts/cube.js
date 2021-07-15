@@ -24,11 +24,16 @@ window.setRotate = setRotate;
 
 function main() {
 	const canvas = document.querySelector('#c');
+	let size = window.innerWidth;
+	if(size > window.innerHeight)
+		size = window.innerHeight - 200
+	canvas.width  = size
+  	canvas.height = size
 	const renderer = new THREE.WebGLRenderer({
 		canvas
 	});
 	const fov = 50;
-	const aspect = 2; // the canvas default
+	const aspect = canvas.width/canvas.height // the canvas default
 	const near = 4;
 	const far = 9;
 	const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);

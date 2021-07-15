@@ -15,6 +15,9 @@ const magenta = new THREE.Color(1, 0, 1);
 const c = {"W": white, "O": orange, "R": red, "B": blue, "Y": yellow, "G": green}
 const boxSize = 0.95
 const cubies = []
+const rotationAxes = new Array(27)
+const rotationAmount = new Array(27)
+const rotationTarget = new Array(27)
 let rotating = false
 
 window.setRotate = setRotate;
@@ -24,20 +27,20 @@ function main() {
 	const renderer = new THREE.WebGLRenderer({
 		canvas
 	});
-	const fov = 75;
+	const fov = 50;
 	const aspect = 2; // the canvas default
-	const near = 0.1;
-	const far = 5;
+	const near = 4;
+	const far = 9;
 	const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-	camera.position.z = 4;
+	camera.position.z = 7;
 
 	const scene = new THREE.Scene();
 
 	{
 		const color = 0xFFFFFF;
-		const intensity = 1;
+		const intensity = 2;
 		const light = new THREE.DirectionalLight(color, intensity);
-		light.position.set(-1, 2, 4);
+		light.position.set(0, 0, 4);
 		scene.add(light);
 	}
 
@@ -48,8 +51,8 @@ function main() {
 		time *= 0.001; // convert time to seconds
 		if(rotating) {
 			for (let cube of cubies) {
-				setRotationAboutAxis(cube, 0.01, 'x')
-				setRotationAboutAxis(cube, 0.01, 'y')
+				rotateAboutAxis(cube, 0.01, 'x')
+				rotateAboutAxis(cube, 0.01, 'y')
 			}
 		}
 		renderer.render(scene, camera);
@@ -60,11 +63,17 @@ function main() {
 	requestAnimationFrame(render);
 }
 
+function makeMove(move) {
+	if(move == 'Z') {
+
+	}
+}
+
 function setRotate() {
 	rotating = !rotating
 }
 
-function setRotationAboutAxis(cube, angle, axis) {
+function rotateAboutAxis(cube, angle, axis) {
 	if(axis == 'x') {
 		const x = cube.position.x
 		cube.position.x = 0

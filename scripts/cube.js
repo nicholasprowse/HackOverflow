@@ -43,12 +43,20 @@ window.play = () => {
 
 }
 window.singleMove = () => {
-	if(rotatingCubies.length == 0 && !playing)
+	if(rotatingCubies.length == 0 && !playing && currentMove < moveSequence.length) {
+		document.getElementById(""+currentMove).setAttribute("class", "mdc-button")
 		makeMove(moveSequence[currentMove++])
+		if(currentMove < moveSequence.length)
+			document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
+	}
 }
 window.back = () => {
-	if(rotatingCubies.length == 0 && !playing)
+	if(rotatingCubies.length == 0 && !playing && currentMove > 0) {
+		if(currentMove < moveSequence.length)
+			document.getElementById(""+currentMove).setAttribute("class", "mdc-button")
 		undoMove(moveSequence[--currentMove])
+		document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
+	}
 }
 window.reset = () => {
 	for(let cube of cubies)
@@ -61,7 +69,10 @@ window.reset = () => {
 	rotationTarget = 0
 	moveCallback = null
 	playing = false
+	if(currentMove < moveSequence.length)
+		document.getElementById(""+currentMove).setAttribute("class", "mdc-button")
 	currentMove = 0
+	document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
 }
 
 function main() {
@@ -127,10 +138,15 @@ function main() {
 }
 
 function makeSequenceOfMoves(moves) {
-	if(currentMove >= moves.length)
-		return
-
 	makeMove(moves[currentMove++], () => {
+		if(currentMove >= moves.length) {
+			window.play()
+			document.getElementById(""+(moveSequence.length - 1)).setAttribute("class", "mdc-button")
+			return
+		}
+
+		document.getElementById(""+(currentMove-1)).setAttribute("class", "mdc-button")
+		document.getElementById(""+(currentMove)).setAttribute("class", "mdc-button mdc-button--raised")
 		makeSequenceOfMoves(moves, currentMove)
 	})
 }
@@ -298,3 +314,22 @@ RYRWBOBGGBROWYYRGWGOYWORGWBYRYRYBGWOYWOGBRWOWBOYGGROBB
 */
 
 main()
+
+// Generate move list
+const template = document.createElement('div');
+template.innerHTML = ""
+for(let i = 0; i < moveSequence.length; i++) {
+	template.innerHTML +=
+	`
+		<button class="mdc-button" Id="` + i + `" disabled>
+		   <span class="mdc-button__label" style="font-size : 20px">` + moveSequence[i].replace('i', "'") + `</span>
+		</button>
+	`
+}
+document.body.appendChild(template)
+document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
+/*
+<button class="mdc-button mdc-button--raised">
+  <span class="mdc-button__label">Contained Button</span>
+</button>
+*/

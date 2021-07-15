@@ -5,9 +5,10 @@
 <head>
   <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
   <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-
+  <script type="module" src="../scripts/cube.js"></script>
 
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
 
 </head>
 <body>
@@ -18,12 +19,13 @@
 	</div>
 
     <canvas id="c"></canvas>
-	<script type="module" src="../scripts/cube.js"></script>
 	<br></br>
 
 	<button class="mdc-icon-button mdc-button--raised material-icons" onclick="reset()">replay</button>
 	<button class="mdc-icon-button mdc-button--raised material-icons" onclick="back()">arrow_back</button>
 	<button class="mdc-icon-button mdc-button--raised material-icons" Id="playButton" onclick="play()">play_arrow</button>
 	<button class="mdc-icon-button mdc-button--raised material-icons" onclick="singleMove()">arrow_forward</button>
+	<br></br>
+
 </body>
 </html>

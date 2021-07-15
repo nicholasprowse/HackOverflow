@@ -4,6 +4,7 @@ let cube_state = "RYRWBOBGGBROWYYRGWGOYWORGWBYRYRYBGWOYWOGBRWOWBOYGGROBB"
 //				 "012345678901234567890123456789012345678901234567890123"
 let moveSequence = ['Xi', 'U', 'U', 'Li', 'D', 'D', 'B', 'B', 'Di', 'B', 'Li', 'U', 'U', 'Li', 'U', 'Di', 'Ri', 'F', 'F', 'R', 'R', 'U', 'U', 'B', 'B', 'U', 'U', 'L', 'L', 'Ui', 'R', 'R']
 let cube
+let currentMove = 0
 
 const red = new THREE.Color(1, 0, 0);
 const green = new THREE.Color(0, 1, 0);
@@ -25,7 +26,10 @@ let moveCallback = null
 window.makeMove = makeMove;
 window.makeSequenceOfMoves = makeSequenceOfMoves;
 
-window.solve = () => {makeSequenceOfMoves(moveSequence)}
+window.play = () => {makeSequenceOfMoves(moveSequence, currentMove)}
+window.singleMove = () => {makeMove(moveSequence[currentMove++])}
+window.back = () => {undoMove(moveSequence[--currentMove])}
+window.reset = () => {}
 
 function main() {
 	const canvas = document.querySelector('#c');
@@ -63,12 +67,6 @@ function main() {
 
 	function render(time) {
 		time *= 0.001; // convert time to seconds
-		// if(rotating) {
-		// 	for (let cube of cubies) {
-		// 		rotateAboutAxis(cube, 0.01, 'x')
-		// 		rotateAboutAxis(cube, 0.01, 'y')
-		// 	}
-		// }
 
 		const rotationSpeed = Math.PI / 50
 		if(rotatingCubies.length > 0) {
@@ -97,14 +95,20 @@ function main() {
 	requestAnimationFrame(render);
 }
 
-function makeSequenceOfMoves(moves) {
-	if(moves.length == 0)
+function makeSequenceOfMoves(moves, startingMove) {
+	if(startingMove >= moves.length)
 		return
 
-	makeMove(moves[0], () => {
-		moves.splice(0, 1)
-		makeSequenceOfMoves(moves)
+	makeMove(moves[startingMove], () => {
+		makeSequenceOfMoves(moves, startingMove + 1)
 	})
+}
+
+function undoMove(move) {
+	if(move.length > 1 && move[1] == 'i')
+		makeMove(move[0])
+	if(move.length == 1)
+		makeMove(move + 'i')
 }
 
 function makeMove(move, callback=null) {

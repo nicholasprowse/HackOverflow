@@ -322,14 +322,10 @@ for(let i = 0; i < moveSequence.length; i++) {
 	template.innerHTML +=
 	`
 		<button class="mdc-button" Id="` + i + `" disabled>
-		   <span class="mdc-button__label" style="font-size:20px">` + moveSequence[i].replace('i', "'") + `</span>
+		   <span class="mdc-button__label" style="font-size:20px; min-width:initial; width:20px">
+		   ` + moveSequence[i].replace('i', "'") + `</span>
 		</button>
 	`
 }
 document.body.appendChild(template)
 document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
-/*
-<button class="mdc-button mdc-button--raised">
-  <span class="mdc-button__label">Contained Button</span>
-</button>
-*/

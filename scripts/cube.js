@@ -2,7 +2,13 @@ import * as THREE from '../resources/threejs/build/three.module.js';
 
 let cube_state = new URLSearchParams(window.location.search).get('state')
 //				 "012345678901234567890123456789012345678901234567890123"
-// let moveSequence = ['Xi', 'U', 'U', 'Li', 'D', 'D', 'B', 'B', 'Di', 'B', 'Li', 'U', 'U', 'Li', 'U', 'Di', 'Ri', 'F', 'F', 'R', 'R', 'U', 'U', 'B', 'B', 'U', 'U', 'L', 'L', 'Ui', 'R', 'R']
+//let moveSequence = ['Di', 'Di', 'B', 'B', 'B', 'D', 'D', 'L', 'L', 'Di', 'B', 'D', 'Ei', 'R', 'E', 'Ri', 'Z', 'Ui', 'B', 'U', 'E', 'L', 'Ei', 'Li', 'B', 'B', 'Ei', 'R', 'E', 'Ri', 'Zi', 'D', 'D', 'Di', 'Di', 'Di', 'B', 'D', 'B', 'B', 'D', 'Bi', 'Di', 'Z', 'B', 'B', 'B', 'D', 'Bi', 'Di', 'Z', 'D', 'B', 'Di', 'B', 'B', 'B', 'Ri', 'B', 'B', 'R', 'Bi', 'Bi', 'D', 'Bi', 'Di', 'Z', 'B', 'D', 'Bi', 'Di', 'Z', 'B', 'B', 'B', 'B', 'L', 'Bi', 'Li', 'Bi', 'Di', 'B', 'D', 'Z', 'Z', 'B', 'L', 'Bi', 'Li', 'Bi', 'Di', 'B', 'D', 'Zi', 'Bi', 'Di', 'B', 'D', 'B', 'L', 'Bi', 'Li', 'Z', 'Bi', 'Di', 'B', 'D', 'B', 'L', 'Bi', 'Li', 'Z', 'Bi', 'Di', 'B', 'D', 'B', 'L', 'Bi', 'Li', 'Z', 'X', 'X', 'D', 'R', 'F', 'Ri', 'Fi', 'Di', 'Xi', 'Xi', 'X', 'X', 'Z', 'F', 'Li', 'Fi', 'L', 'D', 'F', 'Di', 'Li', 'F', 'L', 'F', 'Zi', 'F', 'Li', 'Fi', 'L', 'D', 'F', 'Di', 'Li', 'F', 'L', 'F', 'Xi', 'Xi', 'X', 'X', 'Ri', 'Fi', 'R', 'Fi', 'Ri', 'F', 'F', 'R', 'F', 'F', 'Xi', 'Xi', 'X', 'X', 'R', 'R', 'F', 'D', 'Ui', 'R', 'R', 'Di', 'U', 'F', 'R', 'R', 'Z', 'Z', 'Z', 'Z', 'Z', 'R', 'R', 'F', 'D', 'Ui', 'R', 'R', 'Di', 'U', 'F', 'R', 'R', 'Z', 'Di', 'Li', 'Ri', 'S', 'Ri', 'Ri', 'S', 'S', 'Ri', 'Fi', 'Fi', 'R', 'Si', 'Si', 'Ri', 'Ri', 'Si', 'R', 'Fi', 'Fi', 'L', 'D']
+//let moveSequence = ['Xi', 'U', 'U', 'Li', 'D', 'D', 'B', 'B', 'Di', 'B', 'Li', 'U', 'U', 'Li', 'U', 'Di', 'Ri', 'F', 'F', 'R', 'R', 'U', 'U', 'B', 'B', 'U', 'U', 'L', 'L', 'Ui', 'R', 'R']
+let moveSequence = ['X2', 'D', 'B', 'D2', 'L', 'D2', 'Fi', 'Ui', 'Li', 'Ui', 'L', 'R', 'U', 'Ri', 'Y2', 'Li', 'U', 'L'
+,'U2', 'Li', 'Ui', 'L', 'R', 'U', 'Ri', 'Ui', 'R', 'U', 'Ri', 'U', 'Li', 'U', 'L', 'U', 'F', 'Ui', 'Fi', 'Y', 'Ui', 'R', 'Ui', 'Ri'
+, 'Ui', 'Fi', 'U', 'F', 'Y', 'Ui', 'R', 'Ui', 'Ri', 'Ui', 'Fi', 'U', 'F', 'Yi', 'U2', 'Li', 'U', 'L', 'U', 'F', 'Ui', 'Fi', 'F', 'R'
+, 'U', 'Ri', 'Ui', 'Fi', 'U', 'R', 'M', 'U', 'Ri', 'Ui', 'Ri', 'Mi', 'F', 'R', 'Fi', 'U2', 'R', 'U', 'Ri', 'Ui', 'Ri', 'F', 'R2', 'Ui',
+'Ri', 'Ui', 'R', 'U', 'Ri', 'Fi', 'U2']
 let cube
 let currentMove = 0
 
@@ -156,6 +162,8 @@ function makeSequenceOfMoves(moves) {
 function undoMove(move, callback) {
 	if(move.length > 1 && move[1] == 'i')
 		makeMove(move[0], callback)
+	if(move.length > 1 && move[1] == '2')
+		makeMove(move, callback)
 	if(move.length == 1)
 		makeMove(move + 'i', callback)
 }
@@ -163,14 +171,17 @@ function undoMove(move, callback) {
 function makeMove(move, callback=null) {
 	moveCallback = callback
 	let cw = -1
-
-	if(move.length > 1)
+	rotationTarget = Math.PI/2
+	if(move.length > 1) {
 		cw = (move[1] == 'i') ? 1 : -1
+		if(move[1] == '2')
+			rotationTarget *= 2
+	}
 	move = move[0]
 	if(move == 'B' || move == 'L' || move == 'D')
 		cw = -cw
 
-	rotationTarget = cw * Math.PI/2
+	rotationTarget *= cw
 
 	if(move == 'Z' || move == 'S' || move == 'F' || move == 'B') {
 		rotationAxes = 'z'
@@ -331,3 +342,5 @@ function generateMoves() {
 	document.getElementById("section").appendChild(template)
 	document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
 }
+
+main(moveSequence)

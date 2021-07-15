@@ -27,15 +27,24 @@ let playing = false
 window.makeMove = makeMove;
 window.makeSequenceOfMoves = makeSequenceOfMoves;
 
+function moveHighlight(dir) {
+	if(currentMove-dir >= 0 && currentMove-dir < moveSequence.length)
+		document.getElementById(""+currentMove-dir).setAttribute("class", "mdc-button")
+	if(currentMove >= 0 && currentMove < moveSequence.length)
+		document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
+}
+
 window.play = () => {
-	if(rotatingCubies.length > 0)
+	if(currentMove >= moveSequence.length)
 		return
 	let button = document.getElementById("playButton")
 	if(playing) {
-		moveCallback = null
+		moveCallback = () => moveHighlight(1)
 		button.innerHTML = "play_arrow"
 		playing = !playing
 	} else {
+		if(rotatingCubies.length > 0)
+			return
 		button.innerHTML = "pause"
 		makeSequenceOfMoves(moveSequence)
 		playing = !playing
@@ -43,20 +52,12 @@ window.play = () => {
 
 }
 window.singleMove = () => {
-	if(rotatingCubies.length == 0 && !playing && currentMove < moveSequence.length) {
-		document.getElementById(""+currentMove).setAttribute("class", "mdc-button")
-		makeMove(moveSequence[currentMove++])
-		if(currentMove < moveSequence.length)
-			document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
-	}
+	if(rotatingCubies.length == 0 && !playing && currentMove < moveSequence.length)
+		makeMove(moveSequence[currentMove++], () => moveHighlight(1))
 }
 window.back = () => {
-	if(rotatingCubies.length == 0 && !playing && currentMove > 0) {
-		if(currentMove < moveSequence.length)
-			document.getElementById(""+currentMove).setAttribute("class", "mdc-button")
-		undoMove(moveSequence[--currentMove])
-		document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
-	}
+	if(rotatingCubies.length == 0 && !playing && currentMove > 0)
+		undoMove(moveSequence[--currentMove], () => moveHighlight(-1))
 }
 window.reset = () => {
 	for(let cube of cubies)
@@ -69,9 +70,9 @@ window.reset = () => {
 	rotationTarget = 0
 	moveCallback = null
 	playing = false
-	if(currentMove < moveSequence.length)
-		document.getElementById(""+currentMove).setAttribute("class", "mdc-button")
 	currentMove = 0
+	for(let i = 0; i < moveSequence.length; i++)
+		document.getElementById(""+i).setAttribute("class", "mdc-button")
 	document.getElementById(""+currentMove).setAttribute("class", "mdc-button mdc-button--raised")
 }
 
@@ -138,24 +139,23 @@ function main() {
 }
 
 function makeSequenceOfMoves(moves) {
-	makeMove(moves[currentMove++], () => {
-		if(currentMove >= moves.length) {
-			window.play()
-			document.getElementById(""+(moveSequence.length - 1)).setAttribute("class", "mdc-button")
-			return
-		}
+	if(currentMove >= moves.length) {
+		document.getElementById("playButton").innerHTML = "play_arrow"
+		playing = false
+		return
+	}
 
-		document.getElementById(""+(currentMove-1)).setAttribute("class", "mdc-button")
-		document.getElementById(""+(currentMove)).setAttribute("class", "mdc-button mdc-button--raised")
+	makeMove(moves[currentMove++], () => {
+		moveHighlight(1)
 		makeSequenceOfMoves(moves, currentMove)
 	})
 }
 
-function undoMove(move) {
+function undoMove(move, callback) {
 	if(move.length > 1 && move[1] == 'i')
-		makeMove(move[0])
+		makeMove(move[0], callback)
 	if(move.length == 1)
-		makeMove(move + 'i')
+		makeMove(move + 'i', callback)
 }
 
 function makeMove(move, callback=null) {
@@ -322,7 +322,7 @@ for(let i = 0; i < moveSequence.length; i++) {
 	template.innerHTML +=
 	`
 		<button class="mdc-button" Id="` + i + `" disabled>
-		   <span class="mdc-button__label" style="font-size : 20px">` + moveSequence[i].replace('i', "'") + `</span>
+		   <span class="mdc-button__label" style="font-size:20px">` + moveSequence[i].replace('i', "'") + `</span>
 		</button>
 	`
 }

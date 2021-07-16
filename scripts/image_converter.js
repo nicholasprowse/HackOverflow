@@ -1,8 +1,8 @@
 
 function extractCubeStateFromImgs(imgs) {
 	// This is incomplete, so just return hardcoded state for testing purposes
-	return "RYRWBOBGGBROWYYRGWGOYWORGWBYRYRYBGWOYWOGBRWOWBOYGGROBB"
-
+	// return "RYRWBOBGGBROWYYRGWGOYWORGWBYRYRYBGWOYWOGBRWOWBOYGGROBB"
+	return "GWBYBROGWYBGWORBYOWROWOBOWGWRGRYOBBGWYYGRBOGRRORWGBYYY"
 	for(let img of imgs) {
 		let edges = cannyEdgeDetector(img)
 		let lines = RANSAC(edges, 21)

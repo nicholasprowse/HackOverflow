@@ -412,126 +412,6 @@ function cross(a, b) {
 
 //************ THESE FUNCTIONS ARE ALL FOR TESTING PURPOSES ONLY ***************
 
-function drawEdges(img, edges) {
-	img = img.bufferSync();
-	for(let i = 0; i < edges.length; i++) {
-		img.set(1, edges[i][1], edges[i][0], 0)
-		img.set(0, edges[i][1], edges[i][0], 1)
-		img.set(0, edges[i][1], edges[i][0], 2)
-	}
-	return img
-}
-
-// Warning: Divide by zero errors are not handled
-function drawLine(img, line, c) {
-	const m = -line[0] / line[1];
-	if(Math.abs(m) > 1) {
-		// Iterate over y
-		for(let y = 0; y < img.shape[0]; y++) {
-			const x = -Math.round((line[1]*y + line[2]) / line[0])
-			if(x >= 0 && x < img.shape[1]) {
-				img.set(c[0], y, x, 0)
-				img.set(c[1], y, x, 1)
-				img.set(c[2], y, x, 2)
-			}
-		}
-	} else {
-		// Iterate over x
-		for(let x = 0; x < img.shape[1]; x++) {
-			const y = -Math.round((line[0]*x + line[2]) / line[1])
-			if(y >= 0 && y < img.shape[0]) {
-				img.set(c[0], y, x, 0)
-				img.set(c[1], y, x, 1)
-				img.set(c[2], y, x, 2)
-			}
-		}
-	}
-
-	return img
-}
-
-function drawLineSegment(img, p1, p2, c) {
-	let line = cross([p1[0], p1[1], 1], [p2[0], p2[1], 1])
-	const m = -line[0] / line[1];
-	if(Math.abs(m) > 1) {
-		// Iterate over y
-		let sy = Math.min(p1[1], p2[1]), fy = Math.max(p1[1], p2[1])
-		for(let y = Math.floor(sy); y <= fy; y++) {
-			const x = -Math.round((line[1]*y + line[2]) / line[0])
-			if(x >= 0 && x < img.shape[1]) {
-				img.set(c[0], y, x, 0)
-				img.set(c[1], y, x, 1)
-				img.set(c[2], y, x, 2)
-			}
-		}
-	} else {
-		// Iterate over x
-		let sx = Math.min(p1[0], p2[0]), fx = Math.max(p1[0], p2[0])
-		for(let x = Math.floor(sx); x <= fx; x++) {
-			const y = -Math.round((line[0]*x + line[2]) / line[1])
-			if(y >= 0 && y < img.shape[0]) {
-				img.set(c[0], y, x, 0)
-				img.set(c[1], y, x, 1)
-				img.set(c[2], y, x, 2)
-			}
-		}
-	}
-
-	return img
-}
-
-function drawQuad(img, q) {
-	let corners = new Array(4)
-	for(let i = 0; i < 4; i++)
-		corners[i] = intersection(q[i], q[(i+1) % 4])
-
-	for(let i = 0; i < 4; i++)
-		img = drawLineSegment(img, corners[i], corners[(i+1)%4], [0, 0, 0])
-	return img
-}
-
-function overlayQuad(img, q) {
-	let intersections = new Array(4)
-	for(let i = 0; i < 4; i++)
-		intersections[i] = intersection(q[i], q[(i+1) % 4])
-	console.log(intersections, q)
-	for(let i = 0; i < 4; i++)
-		img = overlayLineSegment(img, intersections[i], intersections[(i+1) % 4])
-
-	return img
-}
-
-function overlayLineSegment(img, p1, p2) {
-	let line = [p1[1] - p2[1], p2[0] - p1[0], p1[0]*p2[1] - p1[1]*p2[0]]
-	const m = -line[0] / line[1];
-	if(Math.abs(m) > 1) {
-		// Iterate over y
-		let sy = Math.min(p1[1], p2[1]), fy = Math.max(p1[1], p2[1])
-
-		for(let y = Math.floor(sy); y <= fy; y++) {
-			const x = -Math.round((line[1]*y + line[2]) / line[0])
-			if(x >= 0 && x < img.shape[1]) {
-				img.set(0, y, x, 0)
-				img.set(0, y, x, 1)
-				img.set(0, y, x, 2)
-			}
-		}
-	} else {
-		// Iterate over x
-		let sx = Math.min(p1[0], p2[0]), fx = Math.max(p1[0], p2[0])
-
-		for(let x = Math.floor(sx); x <= fx; x++) {
-			const y = -Math.round((line[0]*x + line[2]) / line[1])
-			if(y >= 0 && y < img.shape[0]) {
-				img.set(0, y, x, 0)
-				img.set(0, y, x, 1)
-				img.set(0, y, x, 2)
-			}
-		}
-	}
-	return img
-}
-
 function test(image_num) {
 	const im = new Image();
 	im.onload = () => {
@@ -540,53 +420,21 @@ function test(image_num) {
 		scale = 500 / Math.max(img.shape[0], img.shape[1])
 		img = tf.image.resizeBilinear(img, [img.shape[0] * scale, img.shape[1] * scale]).div(255)
 
-		let edges = cannyEdgeDetector(img)
-		let lines = RANSAC(edges, 21)
-		let groups = splitLines(lines)
-		if(groups == null) {
-			console.log("FAILURE")
-			return
-		}
-		for(let i = 0; i < 3; i++)
-			groups[i] = sortGroup(groups[i], img.shape[1]/2, img.shape[0]/2)
-
-		let [quads, x1] = getQuadsFromFace(groups, 0, false)
-		let [quads2, x2] = getQuadsFromFace(groups, 0, true)
-
-		quads = quads.concat(quads2)
-		let x = []
-		for(let i = 2; i < 6; i++)
-			if(i != x1 && i != x2)
-				x.push(i)
-
-		let g1 = Math.floor(x[0] / 2),
-		    g2 = Math.floor(x[1] / 2)
-
-		let off1 = (x[0] % 2) == 0 ? 0 : 3
-		let off2 = (x[1] % 2) == 0 ? 0 : 3
-		for(let i = 0; i < 3; i++) {
-			for(let j = 0; j < 3; j++) {
-				quads.push([
-					groups[g1][i+off1], groups[g2][j+off2],
-					groups[g1][i+off1+1], groups[g2][j+off2+1]])
-			}
-		}
-
-		let s = ""
-		for(let g of groups[0])
-			s += "{" +g[0] + "," + g[1] + "},"
-		//console.log(s)
+		// let edges = cannyEdgeDetector(img)
+		// let lines = RANSAC(edges, 21)
+		// let groups = splitLines(lines)
+		//
+		// if(groups == null) {
+		// 	console.log("FAILURE")
+		// 	return
+		// }
+		//
+		// let quads = getQuads(groups)
 
 		img = img.bufferSync()
-		// img = overlayEdges(a, edges)
-		// for(let i = 0; i < groups[0].length; i++)
-		// 	img = drawLine(img, groups[0][i], [1, 0, 0])
-		// for(let i = 0; i < groups[1].length; i++)
-		// 	img = drawLine(img, groups[1][i], [0, 1, 0])
-		// for(let i = 0; i < groups[2].length; i++)
-		// 	img = drawLine(img, groups[2][i], [0, 0, 1])
-		for(let i = 0; i < quads.length; i++)
-			img = drawQuad(img, quads[i])
+		let p = Math.PI
+		let cube = new Cube([-0, -0, -6],   [p, p+p/4, p/6])
+		cube.drawOnImage(img, 1000)
 
 
 
@@ -601,3 +449,5 @@ function showImg(img) {
 	document.body.insertBefore(canvas, null);
 	tf.browser.toPixels(img, canvas);
 }
+
+test()

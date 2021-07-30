@@ -423,9 +423,12 @@ function test(image_num) {
 		// Want img to have maximum size of 500
 		scale = 500 / Math.max(img.shape[0], img.shape[1])
 		img = tf.image.resizeBilinear(img, [img.shape[0] * scale, img.shape[1] * scale]).div(255)
-		setImg(img, "image")
 		let edges = cannyEdgeDetector(img)
 		let lines = RANSAC(edges, 21)
+		let imgBuf = img.bufferSync()
+		for(let l of lines)
+			drawLine(imgBuf, l, [0, 1, 0])
+		setImg(img, "image")
 		imgSize = img.shape
 		// let groups = splitLines(lines)
 		//
@@ -490,7 +493,7 @@ function test(image_num) {
 				"Error: " + cube.getTotalError(lines, f, [img.shape[1]/2, img.shape[0]/2])
 		})
 	}
-	im.src = "../imgs/cube_2.jpg";
+	im.src = "../imgs/cube_" + image_num + ".jpg";
 }
 
 function showCube() {
@@ -505,4 +508,4 @@ function setImg(img, canvasName) {
 	tf.browser.toPixels(img, canvas).then(() => tf.dispose(img))
 }
 
-test()
+test(2)

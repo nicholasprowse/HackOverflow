@@ -414,7 +414,7 @@ function cross(a, b) {
 
 let cube;
 let imgSize;
-let f = 1000
+let lines;
 
 function test(image_num) {
 	const im = new Image();
@@ -424,10 +424,14 @@ function test(image_num) {
 		scale = 500 / Math.max(img.shape[0], img.shape[1])
 		img = tf.image.resizeBilinear(img, [img.shape[0] * scale, img.shape[1] * scale]).div(255)
 		let edges = cannyEdgeDetector(img)
-		let lines = RANSAC(edges, 21)
+		lines = RANSAC(edges, 21)
 		let imgBuf = img.bufferSync()
-		for(let l of lines)
-			drawLine(imgBuf, l, [0, 1, 0])
+		for(let i = 0; i < lines.length; i++) {
+			let c = (i > 1 ? [0, 1, 0] : [0, 0, 1])
+			drawLine(imgBuf, lines[i], c)
+		}
+
+		lines = [lines[0], lines[1]]
 		setImg(img, "image")
 		imgSize = img.shape
 		// let groups = splitLines(lines)
@@ -442,64 +446,73 @@ function test(image_num) {
 		let pi = Math.PI
 		let pos = [0, 0, -5];
 		let angle = [pi, pi+pi/4, pi/6]
-		let p = -f*pos[2]
-		let r = -f/pos[2]
 
-		cube = new Cube(pos, angle)
-
+		cube = new Cube(pos, angle, 1000, [img.shape[1]/2, img.shape[0]/2])
+		showCube()
 		document.getElementById('x').addEventListener('input', (event) => {
 			pos[0] = event.target.valueAsNumber
-			document.getElementById("error").innerHTML =
-				"Error: " + cube.getTotalError(lines, f, [img.shape[1]/2, img.shape[0]/2])
+			setErrorText()
 		})
 
 		document.getElementById('y').addEventListener('input', (event) => {
 			pos[1] = -event.target.valueAsNumber
-			document.getElementById("error").innerHTML =
-				"Error: " + cube.getTotalError(lines, f, [img.shape[1]/2, img.shape[0]/2])
+			setErrorText()
 		})
 
 		document.getElementById('z').addEventListener('input', (event) => {
-			r = event.target.valueAsNumber
-			pos[2] = -Math.sqrt(p/r)
-			f = Math.sqrt(p*r)
-			document.getElementById("error").innerHTML =
-				"Error: " + cube.getTotalError(lines, f, [img.shape[1]/2, img.shape[0]/2])
+			pos[2] = -event.target.valueAsNumber
+			setErrorText()
 		})
 
 		document.getElementById('a').addEventListener('input', (event) => {
 			angle[0] = event.target.valueAsNumber
-			document.getElementById("error").innerHTML =
-				"Error: " + cube.getTotalError(lines, f, [img.shape[1]/2, img.shape[0]/2])
+			cube.dirty = true
+			setErrorText()
 		})
 
 		document.getElementById('b').addEventListener('input', (event) => {
 			angle[1] = event.target.valueAsNumber
-			document.getElementById("error").innerHTML =
-				"Error: " + cube.getTotalError(lines, f, [img.shape[1]/2, img.shape[0]/2])
+			cube.dirty = true
+			setErrorText()
 		})
 
 		document.getElementById('c').addEventListener('input', (event) => {
 			angle[2] = event.target.valueAsNumber
-			document.getElementById("error").innerHTML =
-				"Error: " + cube.getTotalError(lines, f, [img.shape[1]/2, img.shape[0]/2])
+			cube.dirty = true
+			setErrorText()
 		})
 
 		document.getElementById('f').addEventListener('input', (event) => {
-			p = event.target.valueAsNumber
-			pos[2] = -Math.sqrt(p/r)
-			f = Math.sqrt(p*r)
-			document.getElementById("error").innerHTML =
-				"Error: " + cube.getTotalError(lines, f, [img.shape[1]/2, img.shape[0]/2])
+			cube.f = event.target.valueAsNumber
+			setErrorText()
 		})
 	}
 	im.src = "../imgs/cube_" + image_num + ".jpg";
 }
 
+function setErrorText() {
+	let error = document.getElementById("error")
+	error.innerHTML = "Error: " + cube.getTotalError(lines) + "</br>"
+	let posDer = cube.getErrorDerivativeWRTPosition(lines)
+	for(let p of posDer)
+		error.innerHTML += p + "</br>"
+	let angleDer = cube.getErrorDerivativeWRTAngle(lines)
+	for(let a of angleDer)
+		error.innerHTML += a + "</br>"
+	let fDer = cube.getErrorDerivativeWRTFocalLength(lines)
+	error.innerHTML += fDer + "</br>"
+}
+
 function showCube() {
 	let drawing = tf.zeros([imgSize[0], imgSize[1], 4])
-	cube.drawOnImage(drawing.bufferSync(), f, [0, 0, 0, 1])
+	cube.drawOnImage(drawing.bufferSync(), [0, 0, 0, 1])
 	setImg(drawing, "draw");
+}
+
+function step() {
+	cube.stepParameters(lines, 0.00003)
+	setErrorText()
+	showCube()
 }
 
 function setImg(img, canvasName) {

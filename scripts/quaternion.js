@@ -20,4 +20,10 @@ class Quaternion {
 		return new Quaternion(w)
 	}
 
+	rotatePoint(p) {
+		p = new Quaternion([0, p[0], p[1], p[2]])
+		p = this.conjugate().mult(p).mult(this)
+		return [p.w[1], p.w[2], p.w[3]]
+	}
+
 }
